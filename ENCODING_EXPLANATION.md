@@ -6,7 +6,7 @@ This document explains the serious bugs that were discovered in the original car
 
 ---
 
-### Bug #1: Random Sampling in `_encode_at_most_k` ❌
+### Bug #1: Random Sampling in `_encode_at_most_k`
 
 **Original code:**
 ```python
@@ -18,7 +18,7 @@ def _encode_at_most_k(self, variables: List[int], k: int):
             self._add_clause(clause)
     else:
         import random
-        random.seed(42)  # ⚠️ THIS IS WRONG!
+        random.seed(42)  # THIS IS WRONG!
         num_clauses_to_add = min(100, len(list(combinations(variables, k + 1))))
         for subset in random.sample(list(combinations(variables, k + 1)), num_clauses_to_add):
             clause = [-v for v in subset]
@@ -31,7 +31,7 @@ def _encode_at_most_k(self, variables: List[int], k: int):
 
 ---
 
-### Bug #2: Broken `_encode_at_least_k` ❌
+### Bug #2: Broken `_encode_at_least_k`
 
 **Original code:**
 ```python
@@ -45,14 +45,14 @@ def _encode_at_least_k(self, variables: List[int], k: int):
     if k == 1:
         self._add_clause(variables)
     else:
-        pass  # ⚠️ DOES NOTHING FOR k > 1!
+        pass  # DOES NOTHING FOR k > 1
 ```
 
 **Problem:** For k > 1, the function does **nothing** (`pass`). It only works for k=1.
 
 ---
 
-### Bug #3: Unclear `_encode_exactly_k` ⚠️
+### Bug #3: Unclear `_encode_exactly_k`
 
 **Original code:** The implementation was there but had no comments explaining what it does.
 
@@ -75,7 +75,7 @@ For each subset S of size k+1:
 ```
 
 **Problem:** For n=25, k=12:
-- C(25, 13) = 5,200,300 clauses! 💥
+- C(25, 13) = 5,200,300 clauses!
 - Exponential growth - unusable for large grids
 
 ### Ladder Network Approach
@@ -301,16 +301,14 @@ $ python life_sat_solver.py 3 --glucose "wsl ~/glucose/simp/glucose"
 ## 7. Summary
 
 ### What Was Wrong
-1. ❌ `_encode_at_most_k` used random sampling (only 100 clauses for large k)
-2. ❌ `_encode_at_least_k` did nothing for k > 1
-3. ⚠️ `_encode_exactly_k` lacked documentation
+1. `_encode_at_most_k` used random sampling (only 100 clauses for large k)
+2. `_encode_at_least_k` did nothing for k > 1
+3. `_encode_exactly_k` lacked documentation
 
 ### What's Fixed
-1. ✅ All functions use proper ladder network encoding
-2. ✅ No random sampling - all clauses generated correctly
-3. ✅ Comprehensive documentation with algorithm explanation
-4. ✅ Reference to Sinz 2005 paper added
-5. ✅ README updated with encoding details
+1. All functions use proper ladder network encoding
+2. No random sampling - all clauses generated correctly
+3. Documentation with algorithm explanation
 
 ### Performance Validation
 - **3×3 grid:** 69 variables, 533 clauses, 4.69s
