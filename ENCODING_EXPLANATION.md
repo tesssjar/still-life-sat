@@ -8,13 +8,11 @@ The solver uses **two encoding strategies**:
 1. **Direct enumeration** for Game of Life neighbor constraints (simple, no auxiliary variables)
 2. **Ladder network** for cardinality constraints (exactly k cells alive)
 
-This document focuses on the ladder network encoding for cardinality constraints, which had critical bugs that were discovered and fixed.
+This document focuses on the ladder network encoding for cardinality constraints.
 
 ---
 
-## Critical Bugs Found and Fixed in Cardinality Encoding
-
-Three serious bugs were discovered in the original cardinality constraint implementation:
+## Critical Bugs in Cardinality Encoding
 
 ### Bug #1: Random Sampling in `_encode_at_most_k`
 
