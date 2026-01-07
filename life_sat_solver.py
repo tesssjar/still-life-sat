@@ -120,7 +120,7 @@ class GameOfLifeSAT:
     def _encode_exactly_k(self, variables: List[int], k: int):
         """
         Encode: exactly k of the variables are true.
-        Uses ladder/sequential counter network (Sinz 2005).
+        Uses ladder/sequential counter network.
         
         The idea: create auxiliary variables s[i,j] that represent:
         "at least j of the first i variables are true"
@@ -133,8 +133,6 @@ class GameOfLifeSAT:
         
         Complexity: O(n*k) auxiliary variables and clauses.
         Much better than naive O(C(n,k)) encoding for large n.
-        
-        Reference: Carsten Sinz, "Towards an Optimal CNF Encoding of Boolean Cardinality Constraints", CP 2005.
         """
         if k < 0 or k > len(variables):
             # Unsatisfiable

@@ -184,7 +184,7 @@ Where:
 ### Requirements
 
 - Python 3.7+
-- Glucose 4.2 SAT solver (available from http://www.labri.fr/perso/lsimon/glucose/)
+- Glucose 4.2 SAT solver
 
 ### Basic Usage
 
@@ -197,7 +197,7 @@ This finds the maximum density still-life in a 5×5 grid using binary search.
 
 #### 2. Solve with an instance file:
 ```bash
-python life_sat_solver.py instances/small_satisfiable_1.json
+python life_sat_solver.py instances/3x3.json
 ```
 
 #### 3. Specify Glucose location:
@@ -373,7 +373,8 @@ python life_sat_solver.py 4 --glucose "wsl ~/glucose/simp/glucose"
 python life_sat_solver.py 5 --glucose "wsl ~/glucose/simp/glucose"
 
 # Test with instance files
-python life_sat_solver.py instances/small_satisfiable_1.json --glucose "wsl ~/glucose/simp/glucose"
+python life_sat_solver.py instances/3x3.json --glucose "wsl ~/glucose/simp/glucose"
+python life_sat_solver.py instances/4x4.json --glucose "wsl ~/glucose/simp/glucose"
 ```
 
 ## Implementation Details
