@@ -61,38 +61,94 @@ class GameOfLifeSAT:
             self.clauses.append(clause)
     
     def _encode_at_most_k(self, variables: List[int], k: int):
+        """
+        Encode: at most k of the variables are true.
+        Uses ladder/sequential counter network encoding.
+        
+        Creates auxiliary variables s[i,j] meaning:
+        "at least j of the first i variables are true"
+        
+        Complexity: O(n*k) clauses instead of O(C(n,k+1)) for naive encoding.
+        """
         if k < 0:
+            # Unsatisfiable: can't have negative count
             self._add_clause([])
             return
         if k >= len(variables):
-            return 
+            # Trivially satisfied: all variables can be true
+            return
         
+        n = len(variables)
+        s = {}
         
-        from itertools import combinations
-
-        if len(variables) <= 20:
-            for subset in combinations(variables, k + 1):
-                clause = [-v for v in subset]
-                self._add_clause(clause)
-        else:
-            import random
-            random.seed(42)
-            num_clauses_to_add = min(100, len(list(combinations(variables, k + 1))))
-            for subset in random.sample(list(combinations(variables, k + 1)), num_clauses_to_add):
-                clause = [-v for v in subset]
-                self._add_clause(clause)
+        # Initialize first row: no variables considered yet
+        for j in range(k + 2):
+            self.num_vars += 1
+            s[(0, j)] = self.num_vars
+        
+        # Base case: 0 variables means count is 0
+        self._add_clause([s[(0, 0)]])  # s[0,0] = true (count >= 0 is always true)
+        for j in range(1, k + 2):
+            self._add_clause([-s[(0, j)]])  # s[0,j] = false (count >= j with 0 vars is false)
+        
+        # Build the counter network
+        for i in range(1, n + 1):
+            for j in range(k + 2):
+                self.num_vars += 1
+                s[(i, j)] = self.num_vars
+                
+                if j == 0:
+                    # Count >= 0 is always true
+                    self._add_clause([s[(i, j)]])
+                else:
+                    # s[i,j] is true iff:
+                    # - s[i-1,j] is true (already had >= j in first i-1), OR
+                    # - variables[i-1] is true AND s[i-1,j-1] is true
+                    
+                    # s[i,j] -> s[i-1,j] OR (variables[i-1] AND s[i-1,j-1])
+                    self._add_clause([-s[(i, j)], s[(i-1, j)], variables[i-1]])
+                    self._add_clause([-s[(i, j)], s[(i-1, j)], s[(i-1, j-1)]])
+                    
+                    # s[i-1,j] -> s[i,j]
+                    self._add_clause([-s[(i-1, j)], s[(i, j)]])
+                    # variables[i-1] AND s[i-1,j-1] -> s[i,j]
+                    self._add_clause([-variables[i-1], -s[(i-1, j-1)], s[(i, j)]])
+        
+        # Final constraint: NOT s[n, k+1] (count must NOT be >= k+1)
+        self._add_clause([-s[(n, k + 1)]])
     
     def _encode_exactly_k(self, variables: List[int], k: int):
+        """
+        Encode: exactly k of the variables are true.
+        Uses ladder/sequential counter network (Sinz 2005).
+        
+        The idea: create auxiliary variables s[i,j] that represent:
+        "at least j of the first i variables are true"
+        
+        Then enforce:
+        - s[n,k] = true (at least k are true)
+        - s[n,k+1] = false (NOT at least k+1 are true)
+        
+        This gives us exactly k.
+        
+        Complexity: O(n*k) auxiliary variables and clauses.
+        Much better than naive O(C(n,k)) encoding for large n.
+        
+        Reference: Carsten Sinz, "Towards an Optimal CNF Encoding of Boolean Cardinality Constraints", CP 2005.
+        """
         if k < 0 or k > len(variables):
+            # Unsatisfiable
             self._add_clause([])
             return
         
         if k == 0:
+            # All variables must be false
             for v in variables:
                 self._add_clause([-v])
             return
         
         if k == len(variables):
+            # All variables must be true
             for v in variables:
                 self._add_clause([v])
             return
@@ -100,42 +156,99 @@ class GameOfLifeSAT:
         n = len(variables)
         s = {}
         
+        # Initialize first row: no variables considered yet
         for j in range(k + 2):
             self.num_vars += 1
             s[(0, j)] = self.num_vars
         
-        self._add_clause([s[(0, 0)]])
+        # Base case: with 0 variables
+        self._add_clause([s[(0, 0)]])  # count >= 0 is always true
         for j in range(1, k + 2):
-            self._add_clause([-s[(0, j)]])
+            self._add_clause([-s[(0, j)]])  # count >= j>0 is false with 0 variables
         
+        # Build the sequential counter network
         for i in range(1, n + 1):
             for j in range(k + 2):
                 self.num_vars += 1
                 s[(i, j)] = self.num_vars
                 
                 if j == 0:
+                    # "at least 0 of first i variables" is always true
                     self._add_clause([s[(i, j)]])
-                elif i > 0:
+                else:
+                    # s[i,j] <-> s[i-1,j] OR (variables[i-1] AND s[i-1,j-1])
+                    # Meaning: we have >= j in first i variables iff:
+                    #   - we already had >= j in first i-1 variables, OR
+                    #   - variable i is true AND we had >= j-1 in first i-1
+                    
+                    # Direction 1: s[i,j] -> s[i-1,j] OR (variables[i-1] AND s[i-1,j-1])
+                    self._add_clause([-s[(i, j)], s[(i-1, j)], variables[i-1]])
+                    self._add_clause([-s[(i, j)], s[(i-1, j)], s[(i-1, j-1)]])
+                    
+                    # Direction 2: (s[i-1,j] OR (variables[i-1] AND s[i-1,j-1])) -> s[i,j]
+                    self._add_clause([-s[(i-1, j)], s[(i, j)]])
+                    self._add_clause([-variables[i-1], -s[(i-1, j-1)], s[(i, j)]])
+        
+        # Final constraint: exactly k means >= k AND NOT >= k+1
+        self._add_clause([s[(n, k)]])      # At least k variables are true
+        self._add_clause([-s[(n, k + 1)]])  # NOT at least k+1 variables are true
+    
+    def _encode_at_least_k(self, variables: List[int], k: int):
+        """
+        Encode: at least k of the variables are true.
+        Uses ladder/sequential counter network encoding.
+        
+        Creates auxiliary variables s[i,j] meaning:
+        "at least j of the first i variables are true"
+        
+        Then enforces s[n,k] = true.
+        
+        Complexity: O(n*k) clauses instead of exponential naive encoding.
+        """
+        if k <= 0:
+            # Trivially satisfied
+            return
+        if k > len(variables):
+            # Unsatisfiable
+            self._add_clause([])
+            return
+        
+        if k == 1:
+            # At least one: simple disjunction
+            self._add_clause(variables)
+            return
+        
+        n = len(variables)
+        s = {}
+        
+        # Initialize first row
+        for j in range(k + 1):
+            self.num_vars += 1
+            s[(0, j)] = self.num_vars
+        
+        # Base case
+        self._add_clause([s[(0, 0)]])
+        for j in range(1, k + 1):
+            self._add_clause([-s[(0, j)]])
+        
+        # Build counter network
+        for i in range(1, n + 1):
+            for j in range(k + 1):
+                self.num_vars += 1
+                s[(i, j)] = self.num_vars
+                
+                if j == 0:
+                    self._add_clause([s[(i, j)]])
+                else:
+                    # s[i,j] <-> s[i-1,j] OR (variables[i-1] AND s[i-1,j-1])
                     self._add_clause([-s[(i, j)], s[(i-1, j)], variables[i-1]])
                     self._add_clause([-s[(i, j)], s[(i-1, j)], s[(i-1, j-1)]])
                     
                     self._add_clause([-s[(i-1, j)], s[(i, j)]])
                     self._add_clause([-variables[i-1], -s[(i-1, j-1)], s[(i, j)]])
         
+        # Final constraint: at least k
         self._add_clause([s[(n, k)]])
-        self._add_clause([-s[(n, k + 1)]])
-    
-    def _encode_at_least_k(self, variables: List[int], k: int):
-        if k <= 0:
-            return 
-        if k > len(variables):
-            self._add_clause([])
-            return
-        
-        if k == 1:
-            self._add_clause(variables)
-        else:
-            pass
     
     def encode(self):
         print(f"[*] Encoding {self.n}x{self.n} still-life problem...")
@@ -159,25 +272,6 @@ class GameOfLifeSAT:
         print(f"[+] Encoding completed in {elapsed:.2f}s")
         print(f"[+] Variables: {self.num_vars}, Clauses: {len(self.clauses)}")
         
-    def _encode_cell_constraint(self, cell_var: int, neighbor_vars: List[int]):
-        num_neighbors = len(neighbor_vars)
-        
-        at_least = {}
-        for k in range(num_neighbors + 1):
-            self.num_vars += 1
-            at_least[k] = self.num_vars
-        
-        self._add_clause([at_least[0]])
-        
-        for k in range(1, num_neighbors + 1):
-            self._add_clause([-at_least[k], at_least[k - 1]])
-        
-        for k in range(1, num_neighbors + 1):
-            pass
-        
-        
-        self._encode_cell_constraint_direct(cell_var, neighbor_vars)
-    
     def _encode_cell_constraint_direct(self, cell_var: int, neighbor_vars: List[int]):
         num_neighbors = len(neighbor_vars)
         

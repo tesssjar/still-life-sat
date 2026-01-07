@@ -105,11 +105,41 @@ For each assignment of the neighbor cells to alive/dead, we determine what the c
 
 #### 3. **Cardinality Constraints**
 
-To find the densest still-life, we can optionally add constraints:
-- **Minimum alive cells**: $\sum_{i,j} x_{i,j} \geq k_{\min}$
-- **Maximum alive cells**: $\sum_{i,j} x_{i,j} \leq k_{\max}$
+To find the densest still-life, we use **exactly-k** cardinality constraints to specify the number of alive cells.
 
-These are encoded using simple conjunctions for minimum and direct clauses for maximum.
+We encode these using the **Sequential Counter (Ladder Network)** encoding from:
+> Carsten Sinz, "Towards an Optimal CNF Encoding of Boolean Cardinality Constraints", CP 2005.
+
+##### Ladder Network Encoding for "Exactly K"
+
+The key idea: create auxiliary variables $s_{i,j}$ representing:
+$$s_{i,j} = \text{"at least } j \text{ of the first } i \text{ variables are true"}$$
+
+**Algorithm:**
+1. Base case: $s_{0,0} = \text{true}$ (0 variables means count ≥ 0), $s_{0,j} = \text{false}$ for $j > 0$
+
+2. For each position $i$ from 1 to $n$:
+   - For each count $j$ from 0 to $k+1$:
+     - $s_{i,j} \Leftrightarrow s_{i-1,j} \vee (x_i \wedge s_{i-1,j-1})$
+     - Meaning: "≥ j in first i" iff "≥ j in first i-1" OR "variable i is true AND ≥ j-1 in first i-1"
+
+3. Final constraint: $s_{n,k} = \text{true} \wedge s_{n,k+1} = \text{false}$
+   - This enforces exactly k variables are true
+
+**Complexity:**
+- **Auxiliary variables**: $O(n \cdot k)$
+- **Clauses**: $O(n \cdot k)$
+- **Much better than naive encoding**: The naive approach uses $\binom{n}{k}$ clauses, which is exponential. For example, on a 5×5 grid with k=12, naive encoding would generate $\binom{25}{12} \approx 5.2$ million clauses, while ladder network uses only ~300 clauses.
+
+**Why not use at_least + at_most?**
+We could encode "exactly k" as "at_least k AND at_most k", but this would require two separate ladder networks (one for ≥k, one for ≤k), doubling the number of auxiliary variables and clauses. The exactly-k encoding above is more efficient, using a single network.
+
+##### Alternative: Naive Encoding (Not Used)
+
+The naive approach would enumerate all $\binom{n}{k+1}$ subsets of size k+1 and add a clause forbidding each:
+$$\bigwedge_{\text{S} \subseteq \text{vars}, |S|=k+1} \left( \bigvee_{x \in S} \neg x \right)$$
+
+This is **exponentially large** and impractical for large grids.
 
 #### 4. **Forced Cells**
 
@@ -366,13 +396,13 @@ We use direct enumeration of neighbor configurations rather than complex interme
 
 ### Alternative Encoding Approaches
 
-1. **Adder circuits**: Use binary adders to count neighbors, then constrain the sum. More complex but potentially better for larger grids.
+1. **Adder circuits**: Use binary adders to count neighbors, then constrain the sum. More complex but potentially better for very dense neighbor counting scenarios.
 
-2. **Cardinality networks**: Specialized circuits for exact counting constraints. Would reduce clause count but increase variable count.
+2. **Cardinality networks**: Specialized sorting networks for counting constraints. Would have similar complexity to ladder networks but different structure.
 
-3. **Tseitin transformation**: Convert to CNF via intermediate variables for complex formulas. Direct approach is simpler for this problem.
+3. **BDD-based encoding**: Use Binary Decision Diagrams to represent neighbor count constraints. Can be more compact but requires specialized tools.
 
-## Known Limitations
+### Known Limitations
 
 1. **Boundary handling**: The solution assumes cells outside the $n \times n$ grid are dead. Patterns near the boundary are affected by this.
 
@@ -380,4 +410,10 @@ We use direct enumeration of neighbor configurations rather than complex interme
 
 3. **Search strategy**: Uses glucose's default heuristics; no custom variable ordering is implemented.
 
-4. **Cardinality constraints**: Uses naive encoding for large K; could be improved with Tseitin or other techniques.
+## References
+
+- John Conway's Game of Life: https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life
+- Glucose SAT Solver: http://www.labri.fr/perso/lsimon/glucose/
+- Carsten Sinz, "Towards an Optimal CNF Encoding of Boolean Cardinality Constraints", CP 2005
+  - Paper: https://doi.org/10.1007/11564751_73
+  - Describes the sequential counter (ladder network) encoding used for cardinality constraints
