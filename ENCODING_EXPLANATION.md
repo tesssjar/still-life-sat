@@ -27,7 +27,7 @@ def _encode_at_most_k(self, variables: List[int], k: int):
 
 **Problem:** When there are many variables, the code **randomly samples only 100 clauses** instead of adding all necessary clauses. This is **completely incorrect** - you cannot randomly omit SAT clauses. The encoding becomes unsound and may produce invalid results.
 
-**This bug was critical** - all clauses must be present for correctness. ✅
+**This bug was critical** - all clauses must be present for correctness.
 
 ---
 
