@@ -1,10 +1,20 @@
 # Ladder Network Encoding - Detailed Explanation
 
-## Critical Bugs Found and Fixed
+## Overview
 
-This document explains the serious bugs that were discovered in the original cardinality constraint implementation and how they were fixed.
+This document explains the **ladder network (sequential counter) encoding** used for cardinality constraints in the Game of Life solver.
+
+The solver uses **two encoding strategies**:
+1. **Direct enumeration** for Game of Life neighbor constraints (simple, no auxiliary variables)
+2. **Ladder network** for cardinality constraints (exactly k cells alive)
+
+This document focuses on the ladder network encoding for cardinality constraints, which had critical bugs that were discovered and fixed.
 
 ---
+
+## Critical Bugs Found and Fixed in Cardinality Encoding
+
+Three serious bugs were discovered in the original cardinality constraint implementation:
 
 ### Bug #1: Random Sampling in `_encode_at_most_k`
 
@@ -52,15 +62,15 @@ def _encode_at_least_k(self, variables: List[int], k: int):
 
 ---
 
-### Bug #3: Unclear `_encode_exactly_k`
-
-**Original code:** The implementation was there but had no comments explaining what it does.
-
----
-
 ## 2. What is Ladder Network Encoding?
 
 The **Ladder Network** (also called **Sequential Counter**) is an efficient way to encode cardinality constraints in CNF.
+
+**Purpose in this solver:** Enforce that exactly k of the n² grid cells are alive.
+
+**Reference:** Carsten Sinz, "Towards an Optimal CNF Encoding of Boolean Cardinality Constraints", CP 2005  
+**Link:** https://doi.org/10.1007/11564751_73
+
 ---
 
 ## 3. How Ladder Network Works

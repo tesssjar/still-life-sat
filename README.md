@@ -84,26 +84,33 @@ For each cell $(i, j)$ in the $n \times n$ grid, we create a Boolean variable $x
 
 #### 2. **Still-Life Constraint Encoding**
 
-For each cell, we need to enforce the still-life rules. The key insight is that we can enumerate all possible neighbor configurations (since each cell has at most 8 neighbors, there are $2^8 = 256$ possible configurations).
+For each cell, we need to enforce the still-life rules. We use **direct enumeration** of all possible neighbor configurations.
+
+The key insight: each cell has at most 8 neighbors, so there are only $2^8 = 256$ possible configurations. We enumerate all of them and for each configuration, determine whether the center cell must be alive, dead, or can be either.
 
 For each cell $(i, j)$ with neighbors $N_{i,j} = \{(r, c) : (r, c) \text{ is a neighbor}\}$:
 
-For each assignment of the neighbor cells to alive/dead, we determine what the center cell must be:
+For each of the 256 possible assignments of neighbor cells to alive/dead:
 
 **If the neighbor configuration has exactly 3 alive neighbors:**
 - The center cell **must be alive** (1)
-- We add the clause: $\text{(neighbors in this config)} \Rightarrow x_{i,j}$
-- Converted to CNF: $\neg(\text{neighbors in this config}) \vee x_{i,j}$
+- We add the clause: $\neg(\text{neighbors in this config}) \vee x_{i,j}$
 
 **If the neighbor configuration has exactly 2 alive neighbors:**
-- The center cell can be anything (no constraint)
+- The center cell can be anything (no constraint added)
 
-**If the neighbor configuration has any other count:**
+**If the neighbor configuration has any other count (0, 1, 4-8):**
 - The center cell **must be dead** (0)
-- We add the clause: $\text{(neighbors in this config)} \Rightarrow \neg x_{i,j}$
-- Converted to CNF: $\neg(\text{neighbors in this config}) \vee \neg x_{i,j}$
+- We add the clause: $\neg(\text{neighbors in this config}) \vee \neg x_{i,j}$
 
-#### 3. **Cardinality Constraints**
+**Why direct enumeration?**
+- Each cell has at most 8 neighbors → only 256 configurations
+- Simple and efficient to generate all clauses
+- Produces at most 256 clauses per cell
+- No auxiliary variables needed
+- SAT solvers handle these clauses very efficiently
+
+#### 3. **Cardinality Constraints (Ladder Network Encoding)**
 
 To find the densest still-life, we use **exactly-k** cardinality constraints to specify the number of alive cells.
 
@@ -141,9 +148,25 @@ $$\bigwedge_{\text{S} \subseteq \text{vars}, |S|=k+1} \left( \bigvee_{x \in S} \
 
 This is **exponentially large** and impractical for large grids.
 
-#### 4. **Forced Cells**
+---
 
-We can force specific cells to be alive by adding unit clauses: $(x_{i,j})$ (always true).
+### Summary of Encodings Used
+
+This solver uses **two different encoding techniques**:
+
+1. **Direct Enumeration** for Game of Life neighbor constraints:
+   - Enumerates all 256 possible neighbor configurations per cell
+   - Simple, efficient, no auxiliary variables
+   - O(256 × n²) = O(n²) clauses total
+
+2. **Ladder Network** for cardinality constraints (exactly k alive cells):
+   - Uses auxiliary variables to count efficiently
+   - O(n² × k) auxiliary variables and clauses
+   - Avoids exponential blowup of naive cardinality encoding
+
+#### 4. **Forced Cells** (Optional)
+
+We can force specific cells to be alive by adding unit clauses: $(x_{i,j})$.
 
 ### Example Encoding
 
@@ -381,19 +404,32 @@ python life_sat_solver.py instances/4x4.json --glucose "wsl ~/glucose/simp/gluco
 
 ### Encoding Complexity
 
-- **Number of variables**: $n^2$ (one per cell)
-- **Number of clauses**: $O(n^2 \cdot 2^8) = O(256 \cdot n^2)$ (one per cell × per neighbor configuration)
+**For Still-Life Constraints (Direct Enumeration):**
+- **Per cell**: At most 256 clauses (one per neighbor configuration)
+- **Total clauses**: O(256 × n²) = O(n²)
 - **Clause length**: At most 9 literals (8 neighbors + 1 center cell)
+- **Auxiliary variables**: 0 (direct encoding uses no auxiliary variables)
 
-### Why Direct Encoding?
+**For Cardinality Constraints (Ladder Network):**
+- **Auxiliary variables**: O(n² × k) where k is the target alive count
+- **Clauses**: O(n² × k)
+- **Total variables**: n² (grid cells) + O(n² × k) (auxiliary)
 
-We use direct enumeration of neighbor configurations rather than complex intermediate variables because:
+**Overall:**
+- Total clauses: O(n²) + O(n² × k) = O(n² × k) for typical k values
+- Very efficient for small to medium grids
 
-1. Each cell has at most 8 neighbors
-2. $2^8 = 256$ configurations is manageable
-3. Produces readable, efficient CNF formulas
-4. Avoids complex auxiliary variable encoding
-5. SAT solvers handle large conjunctions efficiently
+### Why Direct Encoding for Game of Life Rules?
+
+We use direct enumeration of neighbor configurations rather than other encoding approaches because:
+
+1. **Small search space**: Each cell has at most 8 neighbors → only 256 configurations
+2. **No auxiliary variables**: Direct encoding is self-contained
+3. **Simple to implement**: Straightforward enumeration loop
+4. **Efficient clauses**: SAT solvers handle conjunctions of short clauses very well
+5. **No counting needed**: We only care about exact counts (2 or 3), not ranges
+
+This is much simpler than using adder circuits or other complex encodings for neighbor counting.
 
 ### Alternative Encoding Approaches
 
