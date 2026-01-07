@@ -33,9 +33,7 @@ def _encode_at_most_k(self, variables: List[int], k: int):
             self._add_clause(clause)
 ```
 
-**Problem:** When there are many variables, the code **randomly samples only 100 clauses** instead of adding all necessary clauses. This is **completely incorrect** - you cannot randomly omit SAT clauses. The encoding becomes unsound and may produce invalid results.
-
-**This bug was critical** - all clauses must be present for correctness.
+**Problem:** When there are many variables, the code **randomly samples only 100 clauses** instead of adding all necessary clauses.
 
 ---
 
@@ -322,5 +320,3 @@ $ python life_sat_solver.py 3 --glucose "wsl ~/glucose/simp/glucose"
 - **3×3 grid:** 69 variables, 533 clauses, 4.69s
 - **Correct results:** 6 alive cells (66.67% density)
 - **Verified:** Solution is a valid still-life
-
-All cardinality constraints now work correctly! ✅
